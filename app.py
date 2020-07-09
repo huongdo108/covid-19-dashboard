@@ -11,6 +11,8 @@ import plotly.express as px
 import plotly.graph_objects as go
 import numpy as np
 
+from data import confirmed_ts,recovered_ts,dead_ts,data_table
+
 
 external_stylesheets = [
     "https://codepen.io/chriddyp/pen/bWLwgP.css",
@@ -18,74 +20,20 @@ external_stylesheets = [
 ]
 
 
+## APP
 app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
-
 server = app.server
 
 
-# get raw data
-rootpath = (
-    "https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/"
-)
-confirmed = pd.read_csv(f"{rootpath}time_series_covid19_confirmed_global.csv")
-recovered = pd.read_csv(f"{rootpath}time_series_covid19_recovered_global.csv")
-dead = pd.read_csv(f"{rootpath}time_series_covid19_deaths_global.csv")
-
-
-def get_last_column(df):
-    last_column = df.columns[-1]
-    return last_column
-
-
-# create main dataframe used in world map, data table and stacked chart
-def create_main_dataframe():
-    confirmed["Province/State"] = confirmed["Province/State"].transform(lambda x: x.fillna(confirmed["Country/Region"]))
-    confirmed_cases = get_last_column(confirmed)
-    recovered_cases = get_last_column(recovered)
-    dead_cases = get_last_column(dead)
-    ratio_recovered = round(recovered[recovered_cases] / confirmed[confirmed_cases], 2)
-    ratio_dead = round(dead[dead_cases] / confirmed[confirmed_cases], 2)
-    df = pd.DataFrame(
-        {
-            "Country/Region": confirmed["Province/State"],
-            "Lat": confirmed["Lat"],
-            "Long": confirmed["Long"],
-            "Confirmed": confirmed[confirmed_cases],
-            "Recovered": recovered[recovered_cases],
-            "Dead": dead[dead_cases],
-            "Recovered/Confirmed": ratio_recovered,
-            "Dead/Confirmed": ratio_dead,
-        }
-    )
-    return df
-
-
-# transform data for time series charts
-def transform_data(df, type_of_data):
-    # fill in missing Province/State
-    df["Province/State"] = df["Province/State"].transform(lambda x: x.fillna(df["Country/Region"]))
-
-    # pivot data
-    df = df.melt(id_vars=["Province/State", "Country/Region", "Lat", "Long"], var_name="Date", value_name="Value",)
-
-    # add new column type
-    df = df.rename(columns={"Country/Region": "Country", "Province/State": "Country/Region"})
-    df["type"] = type_of_data
-    return df
-
-
-# create new dataframe for charts
-confirmed_f = transform_data(confirmed, "Confirmed Cases")
-recovered_f = transform_data(recovered, "Recovered Cases")
-dead_f = transform_data(dead, "Death Cases")
-data_table = create_main_dataframe()
-
-
+##CREATE CHARTS AND CALLBACK FUNCTIONS TO UPDATE CHARTS
 # world map
 @app.callback(
     dash.dependencies.Output("world-map", "figure"), [dash.dependencies.Input("year", "value")],
 )
 def update_graph(year):
+    """
+    Create and update world map regarding the change in year
+    """
     px.set_mapbox_access_token(open(".mapbox_token").read())
     fig = px.scatter_mapbox(
         data_table,
@@ -101,17 +49,17 @@ def update_graph(year):
         color_continuous_scale=px.colors.cyclical.IceFire,
         zoom=1,
     )
-
     fig.update_traces(customdata=data_table["Country/Region"])
     fig.update_layout(coloraxis_showscale=False, margin=dict(l=5, r=5, t=5, b=5), height=350)
-
     fig.layout.autosize = True
-
     return fig
 
 
 # time series for each country
 def create_time_series(df, title):
+    """
+    Create time series chart for confirmed cases, recovered cases, dead cases for each country
+    """
     fig = px.line(df, x="Date", y="Value", color="type")
     fig.update_traces(mode="lines")
     fig.update_xaxes(showgrid=False)
@@ -130,16 +78,17 @@ def create_time_series(df, title):
     fig.update_layout(height=185, margin=dict(l=20, r=5, t=0, b=20))
     fig.update_layout(legend=dict(x=0, y=0.5))
     return fig
-
-
 @app.callback(
     dash.dependencies.Output("country-specific", "figure"), [dash.dependencies.Input("world-map", "hoverData")],
 )
 def update_timeseries(hoverData):
+    """
+    Update time series chart regarding the change in hover point in world map
+    """
     country_name = hoverData["points"][0]["customdata"]
-    df_confirmed = confirmed_f[confirmed_f["Country/Region"] == country_name]
-    df_recovered = recovered_f[recovered_f["Country/Region"] == country_name]
-    df_dead = dead_f[dead_f["Country/Region"] == country_name]
+    df_confirmed = confirmed_ts[confirmed_ts["Country/Region"] == country_name]
+    df_recovered = recovered_ts[recovered_ts["Country/Region"] == country_name]
+    df_dead = dead_ts[dead_ts["Country/Region"] == country_name]
     df = pd.concat([df_confirmed, df_recovered, df_dead])
     title = "<b>{}</b>".format(country_name)
     return create_time_series(df, title)
@@ -156,9 +105,10 @@ operators = [
     ["contains "],
     ["datestartswith "],
 ]
-
-
 def split_filter_part(filter_part):
+    """
+
+    """
     for operator_type in operators:
         for operator in operator_type:
             if operator in filter_part:
@@ -174,14 +124,10 @@ def split_filter_part(filter_part):
                         value = float(value_part)
                     except ValueError:
                         value = value_part
-
                 # word operators need spaces after them in the filter string,
                 # but we don't want these later
                 return name, operator_type[0].strip(), value
-
     return [None] * 3
-
-
 @app.callback(
     dash.dependencies.Output("table-paging-with-graph", "data"),
     [
@@ -192,6 +138,9 @@ def split_filter_part(filter_part):
     ],
 )
 def update_table(page_current, page_size, sort_by, filter):
+    """
+    Update data table regarding sorting, filtering
+    """
     filtering_expressions = filter.split(" && ")
     dff = data_table[["Country/Region", "Confirmed", "Recovered", "Dead", "Recovered/Confirmed", "Dead/Confirmed"]]
     for filter_part in filtering_expressions:
@@ -206,14 +155,12 @@ def update_table(page_current, page_size, sort_by, filter):
             # this is a simplification of the front-end filtering logic,
             # only works with complete fields in standard format
             dff = dff.loc[dff[col_name].str.startswith(filter_value)]
-
     if len(sort_by):
         dff = dff.sort_values(
             [col["column_id"] for col in sort_by],
             ascending=[col["direction"] == "asc" for col in sort_by],
             inplace=False,
         )
-
     return dff.iloc[page_current * page_size : (page_current + 1) * page_size].to_dict("records")
 
 
@@ -223,6 +170,10 @@ def update_table(page_current, page_size, sort_by, filter):
     [dash.dependencies.Input("table-paging-with-graph", "data")],
 )
 def update_graph(rows):
+    """
+    Create stacked bar chart of confirmed, recovered, dead cases for countries. 
+    Update chart regarding the change (sorting, filtering,deleting) in the data table.
+    """
     dff = pd.DataFrame(rows)
     fig = go.Figure(
         data=[
@@ -235,8 +186,8 @@ def update_graph(rows):
     return html.Div([dcc.Graph(figure=fig)])
 
 
-# cards
-card_content1 = [
+# cards for world figured: world confirmed cases, world recovered cases, world dead cases
+card_confirmed = [
     dbc.CardHeader("WORLD CONFIRMED CASES", style={"fontSize": 12, "fontWeight": "bold"}),
     dbc.CardBody(
         [
@@ -246,7 +197,7 @@ card_content1 = [
     ),
 ]
 
-card_content2 = [
+card_recovered = [
     dbc.CardHeader("WORLD RECOVERED CASES", style={"fontSize": 12, "fontWeight": "bold"}),
     dbc.CardBody(
         [
@@ -256,7 +207,7 @@ card_content2 = [
     ),
 ]
 
-card_content3 = [
+card_dead = [
     dbc.CardHeader("WORLD DEAD CASES", style={"fontSize": 12, "fontWeight": "bold"}),
     dbc.CardBody(
         [
@@ -267,7 +218,6 @@ card_content3 = [
 ]
 
 ## LAYOUT
-
 app.layout = html.Div(
     [
         dbc.Row(
@@ -277,9 +227,9 @@ app.layout = html.Div(
         ),
         dbc.Row(
             [
-                dbc.Col(dbc.Card(card_content1, color="info", inverse=True)),
-                dbc.Col(dbc.Card(card_content2, color="success", inverse=True)),
-                dbc.Col(dbc.Card(card_content3, color="secondary", inverse=True)),
+                dbc.Col(dbc.Card(card_confirmed, color="info", inverse=True)),
+                dbc.Col(dbc.Card(card_recovered, color="success", inverse=True)),
+                dbc.Col(dbc.Card(card_dead, color="secondary", inverse=True)),
             ],
             className="mb-4",
             style={"marginLeft": 5, "marginRight": 5, "marginTop": 5, "marginBottom": 0},
