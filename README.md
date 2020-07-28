@@ -22,3 +22,4 @@ Python, Dash (CSS, HTML and Bootstrap components)
 2019-COVID cases: Johns Hopkins Center for Systems Science and Engineering github page (https://github.com/CSSEGISandData/COVID-19/tree/master/csse_covid_19_data/csse_covid_19_time_series)
 
 
+<img src="https://github.com/huongdo108/covid-19-dashboard/blob/master/dashboard.PNG" align="centre">
