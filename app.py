@@ -60,7 +60,7 @@ def create_time_series(df, title):
     """
     Create time series chart for confirmed cases, recovered cases, dead cases for each country
     """
-    fig = px.line(df, x="Date", y="Value", color="type")
+    fig = px.line(df, x="Date", y="Value", color="type",color_discrete_map={'Confirmed Cases': '#40A0E0','Recovered Cases': 'SeaGreen', 'Death Cases': 'Grey'})
     fig.update_traces(mode="lines")
     fig.update_xaxes(showgrid=False)
     fig.add_annotation(
@@ -177,9 +177,9 @@ def update_graph(rows):
     dff = pd.DataFrame(rows)
     fig = go.Figure(
         data=[
-            go.Bar(name="Confirmed", x=dff["Country/Region"], y=dff["Confirmed"]),
-            go.Bar(name="Recovered", x=dff["Country/Region"], y=dff["Recovered"]),
-            go.Bar(name="Dead", x=dff["Country/Region"], y=dff["Dead"]),
+            go.Bar(name="Confirmed", x=dff["Country/Region"], y=dff["Confirmed"],marker_color=' #40A0E0'),
+            go.Bar(name="Recovered", x=dff["Country/Region"], y=dff["Recovered"],marker_color='SeaGreen'),
+            go.Bar(name="Dead", x=dff["Country/Region"], y=dff["Dead"],marker_color='grey'),
         ]
     )
     fig.update_layout(barmode="stack", margin=dict(l=10, r=5, t=10, b=5), height=250, width=718)
@@ -244,6 +244,13 @@ app.layout = html.Div(
                             )
                         ),
                         dbc.Row(dbc.Col(html.Div([dcc.Graph(id="country-specific")], style={},))),
+                        dbc.Row(                            
+                            dbc.Col(
+                                html.Div([dcc.Dropdown(id="year", options=[{"label": i, "value": i} for i in ["2020"]], value="2020",)],),
+                                width=2,
+                                style = {"marginTop": 10}
+                            )
+                        ),
                     ],
                     width=6,
                     style={"marginLeft": 20},
@@ -299,13 +306,13 @@ app.layout = html.Div(
                 ),
             ]
         ),
-        dbc.Row(
-            dbc.Col(
-                html.Div(
-                    [dcc.Dropdown(id="year", options=[{"label": i, "value": i} for i in ["2020"]], value="2020",)],
-                )
-            )
-        ),
+        # dbc.Row(
+        #     dbc.Col(
+        #         html.Div(
+        #             [dcc.Dropdown(id="year", options=[{"label": i, "value": i} for i in ["2020"]], value="2020",)],
+        #         )
+        #     )
+        # ),
     ],
     style={"backgroundColor": "Gainsboro"},
 )
