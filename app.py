@@ -60,7 +60,8 @@ def create_time_series(df, title):
     """
     Create time series chart for confirmed cases, recovered cases, dead cases for each country
     """
-    fig = px.line(df, x="Date", y="Value", color="type",color_discrete_map={'Confirmed Cases': '#40A0E0','Recovered Cases': 'SeaGreen', 'Death Cases': 'Grey'})
+    fig = px.line(df, x="Date", y="Value", color="type",
+    color_discrete_map={'Confirmed Cases': '#40A0E0','Recovered Cases': 'SeaGreen', 'Death Cases': 'Grey'})
     fig.update_traces(mode="lines")
     fig.update_xaxes(showgrid=False)
     fig.add_annotation(
